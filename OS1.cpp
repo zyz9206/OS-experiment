@@ -4,7 +4,6 @@
 #include<sys/stat.h>
 #include<fcntl.h>
 #include<error.h>
-#include<wait.h>
 #include<unistd.h>
 #include<queue>
 #include<deque>
@@ -20,7 +19,7 @@ class Pcb{
         int mem;
         string name;
         Pcb(){};
-        Pcb(int &m,string &n){
+        Pcb(int m,string n){
             this->mem=m;
             this->name=n;
         }
@@ -30,8 +29,9 @@ queue<Pcb> Ready;
 queue<Pcb> Running;
 queue<Pcb> Blocked;
 queue<Pcb> Exit;
-void admit(queue<Pcb> &n,queue<Pcb> &ready);
-void print(queue<Pcb> q){
+void admit();
+void print(queue<Pcb> &q){
+    queue<Pcb> tmp;
     if(q.empty()){
         cout<<"----EMPTY----";
         cout<<endl;
@@ -40,99 +40,105 @@ void print(queue<Pcb> q){
     else{
         while(!q.empty()){
             cout<<q.front().name<<" ";
+            tmp.push(q.front());
             q.pop();
+        }
+        while(!tmp.empty()){
+            q.push(tmp.front());
+            tmp.pop();
         }
     }
     cout<<endl;
 }
-void create(queue<Pcb> &n){
+void create(){
     string name;
     int mem;
     cin>>name;
     cin>>mem;
     if(mem>full){
         cout<<"Too Big.Abort"<<endl;
+        return;
     }
-    return;
     Pcb *t=new Pcb(mem,name);
     New.push(*t);
-    admit(n,Ready);
+    cout << t->name << " created" << endl;
+    admit();
 }
-void admit(queue<Pcb> &n,queue<Pcb> &ready){
-    if(n.empty()){
+void admit(){
+    if(New.empty()){
         cout<<"No events in NEW"<<endl;
         return;
     }
-    while(!n.empty()){
-        Pcb temp=n.front();
-        if(temp.mem+memory<=full) return;
-        ready.push(temp);
-        n.pop();
+    while(!New.empty()){
+        Pcb temp=New.front();
+        //if(temp.mem+memory<=full) return;
+        Ready.push(temp);
+        New.pop();
     }
     
 }
-void dispatch(queue<Pcb> &ready,queue<Pcb> &running){
-    if(ready.empty()){
+void dispatch(){
+    if(Ready.empty()){
         cout<<"No events Ready"<<endl;
         return;
     }
-    else if(!running.empty()){
+    else if(!Running.empty()){
         cout<<"CPU not free"<<endl;
-        Blocked.push(ready.front());
-        ready.pop();
+        Blocked.push(Ready.front());
+        Ready.pop();
     }
     else{
-        running.push(ready.front());
-        ready.pop();
+        Running.push(Ready.front());
+        Ready.pop();
     }
 }
-void timeout(queue<Pcb> &ready,queue<Pcb> &running){
-    if(running.empty()){
+void timeout(){
+    if(Running.empty()){
         cout<<"No events Running"<<endl;
         return;
     }
-    ready.push(running.front());
-    running.pop();
-    dispatch(ready,running);
+    Ready.push(Running.front());
+    Running.pop();
+    dispatch();
 }
-void occurs(queue<Pcb> &b,queue<Pcb> &ready){
-    if(b.empty()){
+void occurs(){
+    if(Blocked.empty()){
         cout<<"No events blocked"<<endl;
         return;
     }
-    ready.push(b.front());
-    b.pop();
-    if(ready.size()==1) dispatch(Ready,Running);
+    Ready.push(Blocked.front());
+    Blocked.pop();
+    if(Ready.size()==1) dispatch();
 }
-void wait(queue<Pcb> &b,queue<Pcb> &running){
-    if(running.empty()){
+void wait(){
+    if(Running.empty()){
         cout<<"No events Running"<<endl;
         return;
     }
-    b.push(running.front());
-    running.pop();
-    if(!Ready.empty()) dispatch(Ready,Running);
+    Blocked.push(Running.front());
+    Running.pop();
+    if(!Ready.empty()) dispatch();
 }
-void release(queue<Pcb> &running,queue<Pcb> &exit){
-    if(running.empty()){
+void release(){
+    if(Running.empty()){
         cout<<"NO events Running!"<<endl;
     }
     else{
-        exit.push(running.front());
-        running.pop();
+        Exit.push(Running.front());
+        Running.pop();
     }
 }
-void refresh(queue<Pcb> &n,queue<Pcb> &ready,queue<Pcb> &running,queue<Pcb> &blocked,queue<Pcb> &exit){
+void refresh(){
     cout<<"NEW: ";
-    print(n);
+    print(New);
     cout<<"READY: ";
-    print(ready);
+    print(Ready);
     cout<<"RUNNING: ";
-    print(running);
+    print(Running);
     cout<<"BLOCKED: ";
-    print(blocked);
+    print(Blocked);
     cout<<"EXIT: ";
-    print(exit);
+    print(Exit);
     return;
 }
 int main(){
@@ -144,35 +150,38 @@ int main(){
         m.insert(make_pair("occurs",4));
         m.insert(make_pair("wait",5));
         m.insert(make_pair("release",6));
+        m.insert(make_pair("stop",7));
     while(1){
-        refresh(New,Ready,Running,Blocked,Exit);
+        refresh();
         string op;
         cin>>op;
         int o;
         if(m.find(op)!=m.end()) o=m[op];
-        else o=7;
+        else o=8;
         switch(o){
             case 0:
-                create(New);
+                create();
                 break;
             case 1:
-                admit(New,Ready);
+                admit();
                 break;
             case 2:
-                dispatch(Ready,Running);
+                dispatch();
                 break;
             case 3:
-                timeout(Ready,Running);
+                timeout();
                 break;
             case 4:
-                occurs(Blocked,Ready);
+                occurs();
                 break;
             case 5:
-                wait(Blocked,Ready);
+                wait();
                 break;
             case 6:
-                release(Running,Exit);
+                release();
                 break;
+            case 7:
+                return 0;
             default:
                 cout<<"No such operations"<<endl;
         }
